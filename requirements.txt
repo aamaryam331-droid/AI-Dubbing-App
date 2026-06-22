@@ -1,7 +1,8 @@
 streamlit
 openai-whisper
-moviepy
+moviepy==1.0.3
 deep-translator
 gtts
 ffmpeg-python
 torch
+imageio-ffmpeg
