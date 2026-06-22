@@ -3,24 +3,19 @@ import whisper
 from deep_translator import GoogleTranslator
 from gtts import gTTS
 import subprocess
-import gdown
 import os
 
 
+# ===== Page setup =====
 st.set_page_config(
     page_title="Arabic → English Dubbing",
     page_icon="🎙️"
 )
 
-st.title("🎙️ AI Dubbing (Google Drive + Stable Version)")
+st.title("🎙️ AI Arabic → English Dubbing")
 
 
-# ====== session state ======
-if "step" not in st.session_state:
-    st.session_state.step = 0
-
-
-# ====== تحميل Whisper ======
+# ===== Load Whisper model =====
 @st.cache_resource
 def load_model():
     return whisper.load_model("base")
@@ -28,46 +23,25 @@ def load_model():
 model = load_model()
 
 
-# ====== تحميل من Google Drive ======
-def download_from_drive(url, output="input_video.mp4"):
-    try:
-        file_id = url.split("/d/")[1].split("/")[0]
-        gdown.download(
-            f"https://drive.google.com/uc?id={file_id}",
-            output,
-            quiet=False
-        )
-        return output
-    except:
-        return None
+# ===== Upload video =====
+video = st.file_uploader(
+    "📁 Upload Arabic video",
+    type=["mp4", "mov", "avi"]
+)
 
 
-# ====== إدخال الرابط ======
-drive_url = st.text_input("📎 Paste Google Drive video link")
+if video:
+
+    # save file
+    with open("input_video.mp4", "wb") as f:
+        f.write(video.read())
+
+    st.video("input_video.mp4")
 
 
-# ====== تحميل الفيديو ======
-if drive_url and st.button("Load Video 🚀"):
+    if st.button("🚀 Start Dubbing"):
 
-    st.info("Downloading video from Google Drive...")
-
-    video_path = download_from_drive(drive_url)
-
-    if video_path is None:
-        st.error("Invalid Google Drive link ❌")
-        st.stop()
-
-    st.session_state.step = 1
-
-    st.video(video_path)
-
-
-# ====== Start Dubbing ======
-if st.session_state.step == 1:
-
-    if st.button("Start Dubbing 🎙️"):
-
-        st.info("Extracting audio...")
+        st.info("1️⃣ Extracting audio from video...")
 
         subprocess.call([
             "ffmpeg",
@@ -76,30 +50,34 @@ if st.session_state.step == 1:
             "audio.mp3"
         ])
 
-        st.info("Transcribing Arabic speech...")
+
+        st.info("2️⃣ Transcribing Arabic speech...")
 
         result = model.transcribe("audio.mp3", language="ar")
         arabic_text = result["text"]
 
-        st.subheader("Arabic Text")
+        st.subheader("📝 Arabic Text")
         st.write(arabic_text)
 
-        st.info("Translating to English...")
+
+        st.info("3️⃣ Translating to English...")
 
         english_text = GoogleTranslator(
             source="ar",
             target="en"
         ).translate(arabic_text)
 
-        st.subheader("English Text")
+        st.subheader("📝 English Text")
         st.write(english_text)
 
-        st.info("Generating voice...")
+
+        st.info("4️⃣ Generating English voice...")
 
         tts = gTTS(text=english_text, lang="en")
         tts.save("voice.mp3")
 
-        st.info("Merging video + audio...")
+
+        st.info("5️⃣ Merging audio with video...")
 
         subprocess.call([
             "ffmpeg",
@@ -112,13 +90,14 @@ if st.session_state.step == 1:
             "output.mp4"
         ])
 
-        st.success("Done 🎉")
+
+        st.success("🎉 Done!")
 
         st.video("output.mp4")
 
         with open("output.mp4", "rb") as f:
             st.download_button(
-                "Download Video",
+                "⬇️ Download Result Video",
                 f,
                 "dubbed_video.mp4"
             )
