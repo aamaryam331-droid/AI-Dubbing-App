@@ -5,3 +5,4 @@ gtts
 ffmpeg-python
 torch
 imageio-ffmpeg
+requests
