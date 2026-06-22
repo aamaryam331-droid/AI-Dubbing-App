@@ -2,7 +2,6 @@ streamlit
 openai-whisper
 deep-translator
 gtts
-gdown
 ffmpeg-python
 torch
 imageio-ffmpeg
