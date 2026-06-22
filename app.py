@@ -2,140 +2,101 @@ import streamlit as st
 import whisper
 from deep_translator import GoogleTranslator
 from gtts import gTTS
-from moviepy.editor import VideoFileClip, AudioFileClip
+import subprocess
 import os
 
 
 st.set_page_config(
-    page_title="Arabic To English Dubbing",
+    page_title="Arabic → English Dubbing",
     page_icon="🎙️"
 )
-
 
 st.title("🎙️ Arabic → English AI Dubbing")
 
 
+# تحميل Whisper
 @st.cache_resource
-def load_whisper():
+def load_model():
     return whisper.load_model("base")
 
+model = load_model()
 
-model = load_whisper()
 
-
-video = st.file_uploader(
-    "Upload Arabic video",
-    type=["mp4", "mov", "avi"]
-)
+# رفع الفيديو
+video = st.file_uploader("Upload Arabic video", type=["mp4", "mov", "avi"])
 
 
 if video:
 
+    # حفظ الفيديو
     with open("input_video.mp4", "wb") as f:
         f.write(video.read())
 
-
     st.video("input_video.mp4")
-
 
     if st.button("Start Dubbing 🚀"):
 
-
         st.info("Extracting audio...")
 
-
-        video_clip = VideoFileClip(
-            "input_video.mp4"
-        )
-
-
-        video_clip.audio.write_audiofile(
+        # استخراج الصوت من الفيديو
+        subprocess.call([
+            "ffmpeg",
+            "-y",
+            "-i", "input_video.mp4",
             "arabic_audio.mp3"
-        )
+        ])
 
+        st.info("Transcribing Arabic speech...")
 
-        st.info("Understanding Arabic speech...")
-
-
+        # تحويل الصوت إلى نص عربي
         result = model.transcribe(
             "arabic_audio.mp3",
             language="ar"
         )
 
-
         arabic_text = result["text"]
 
-
-        st.subheader("Arabic text:")
+        st.subheader("Arabic Text")
         st.write(arabic_text)
 
+        st.info("Translating to English...")
 
-
-        st.info("Translating Arabic to English...")
-
-
+        # ترجمة
         english_text = GoogleTranslator(
             source="ar",
             target="en"
         ).translate(arabic_text)
 
-
-
-        st.subheader("English text:")
+        st.subheader("English Text")
         st.write(english_text)
 
+        st.info("Generating English voice...")
 
+        # تحويل النص لصوت
+        tts = gTTS(text=english_text, lang="en")
+        tts.save("english_voice.mp3")
 
-        st.info("Creating English voice...")
+        st.info("Merging audio with video...")
 
-
-        voice = gTTS(
-            text=english_text,
-            lang="en"
-        )
-
-
-        voice.save(
-            "english_voice.mp3"
-        )
-
-
-
-        st.info("Adding English voice to video...")
-
-
-        new_audio = AudioFileClip(
-            "english_voice.mp3"
-        )
-
-
-        final_video = video_clip.set_audio(
-            new_audio
-        )
-
-
-        final_video.write_videofile(
+        # دمج الصوت مع الفيديو
+        subprocess.call([
+            "ffmpeg",
+            "-y",
+            "-i", "input_video.mp4",
+            "-i", "english_voice.mp3",
+            "-c:v", "copy",
+            "-map", "0:v:0",
+            "-map", "1:a:0",
             "dubbed_video.mp4"
-        )
-
-
+        ])
 
         st.success("Done 🎉")
 
+        st.video("dubbed_video.mp4")
 
-        st.video(
-            "dubbed_video.mp4"
-        )
-
-
-        with open(
-            "dubbed_video.mp4",
-            "rb"
-        ) as file:
-
-
+        with open("dubbed_video.mp4", "rb") as file:
             st.download_button(
-                label="Download English Dubbed Video",
-                data=file,
-                file_name="english_dubbed.mp4"
+                "Download Video",
+                file,
+                "dubbed_video.mp4"
             )
