@@ -3,15 +3,15 @@ import whisper
 from deep_translator import GoogleTranslator
 from gtts import gTTS
 import subprocess
+import requests
 import os
-
 
 st.set_page_config(
     page_title="Arabic → English Dubbing",
     page_icon="🎙️"
 )
 
-st.title("🎙️ Arabic → English AI Dubbing")
+st.title("🎙️ AI Dubbing (Google Drive Version)")
 
 
 # تحميل Whisper
@@ -22,81 +22,91 @@ def load_model():
 model = load_model()
 
 
-# رفع الفيديو
-video = st.file_uploader("Upload Arabic video", type=["mp4", "mov", "avi"])
+# تحويل رابط Google Drive إلى ملف مباشر
+def download_from_drive(url, output="input_video.mp4"):
+    try:
+        file_id = url.split("/d/")[1].split("/")[0]
+        download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+
+        response = requests.get(download_url)
+        with open(output, "wb") as f:
+            f.write(response.content)
+
+        return output
+    except:
+        return None
 
 
-if video:
+drive_url = st.text_input("📎 Paste Google Drive video link")
 
-    # حفظ الفيديو
-    with open("input_video.mp4", "wb") as f:
-        f.write(video.read())
+if drive_url:
 
-    st.video("input_video.mp4")
+    if st.button("Load Video 🚀"):
 
-    if st.button("Start Dubbing 🚀"):
+        st.info("Downloading video from Google Drive...")
 
-        st.info("Extracting audio...")
+        video_path = download_from_drive(drive_url)
 
-        # استخراج الصوت من الفيديو
-        subprocess.call([
-            "ffmpeg",
-            "-y",
-            "-i", "input_video.mp4",
-            "arabic_audio.mp3"
-        ])
+        if video_path is None:
+            st.error("Invalid Google Drive link ❌")
+            st.stop()
 
-        st.info("Transcribing Arabic speech...")
+        st.video(video_path)
 
-        # تحويل الصوت لنص عربي
-        result = model.transcribe(
-            "arabic_audio.mp3",
-            language="ar"
-        )
+        if st.button("Start Dubbing 🎙️"):
 
-        arabic_text = result["text"]
+            st.info("Extracting audio...")
 
-        st.subheader("Arabic Text")
-        st.write(arabic_text)
+            subprocess.call([
+                "ffmpeg",
+                "-y",
+                "-i", video_path,
+                "audio.mp3"
+            ])
 
-        st.info("Translating to English...")
+            st.info("Transcribing Arabic...")
 
-        # ترجمة النص
-        english_text = GoogleTranslator(
-            source="ar",
-            target="en"
-        ).translate(arabic_text)
+            result = model.transcribe("audio.mp3", language="ar")
+            arabic_text = result["text"]
 
-        st.subheader("English Text")
-        st.write(english_text)
+            st.subheader("Arabic Text")
+            st.write(arabic_text)
 
-        st.info("Generating English voice...")
+            st.info("Translating to English...")
 
-        # تحويل النص لصوت إنجليزي
-        tts = gTTS(text=english_text, lang="en")
-        tts.save("english_voice.mp3")
+            english_text = GoogleTranslator(
+                source="ar",
+                target="en"
+            ).translate(arabic_text)
 
-        st.info("Merging audio with video...")
+            st.subheader("English Text")
+            st.write(english_text)
 
-        # دمج الصوت مع الفيديو (بدون MoviePy)
-        subprocess.call([
-            "ffmpeg",
-            "-y",
-            "-i", "input_video.mp4",
-            "-i", "english_voice.mp3",
-            "-c:v", "copy",
-            "-map", "0:v:0",
-            "-map", "1:a:0",
-            "dubbed_video.mp4"
-        ])
+            st.info("Creating voice...")
 
-        st.success("Done 🎉")
+            tts = gTTS(text=english_text, lang="en")
+            tts.save("voice.mp3")
 
-        st.video("dubbed_video.mp4")
+            st.info("Merging video + voice...")
 
-        with open("dubbed_video.mp4", "rb") as file:
-            st.download_button(
-                label="Download English Dubbed Video",
-                data=file,
-                file_name="english_dubbed.mp4"
-            )
+            subprocess.call([
+                "ffmpeg",
+                "-y",
+                "-i", video_path,
+                "-i", "voice.mp3",
+                "-c:v", "copy",
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "output.mp4"
+            ])
+
+            st.success("Done 🎉")
+
+            st.video("output.mp4")
+
+            with open("output.mp4", "rb") as f:
+                st.download_button(
+                    "Download Video",
+                    f,
+                    "dubbed_video.mp4"
+                )
