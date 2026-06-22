@@ -48,7 +48,7 @@ if video:
 
         st.info("Transcribing Arabic speech...")
 
-        # تحويل الصوت إلى نص عربي
+        # تحويل الصوت لنص عربي
         result = model.transcribe(
             "arabic_audio.mp3",
             language="ar"
@@ -61,7 +61,7 @@ if video:
 
         st.info("Translating to English...")
 
-        # ترجمة
+        # ترجمة النص
         english_text = GoogleTranslator(
             source="ar",
             target="en"
@@ -72,13 +72,13 @@ if video:
 
         st.info("Generating English voice...")
 
-        # تحويل النص لصوت
+        # تحويل النص لصوت إنجليزي
         tts = gTTS(text=english_text, lang="en")
         tts.save("english_voice.mp3")
 
         st.info("Merging audio with video...")
 
-        # دمج الصوت مع الفيديو
+        # دمج الصوت مع الفيديو (بدون MoviePy)
         subprocess.call([
             "ffmpeg",
             "-y",
@@ -96,7 +96,7 @@ if video:
 
         with open("dubbed_video.mp4", "rb") as file:
             st.download_button(
-                "Download Video",
-                file,
-                "dubbed_video.mp4"
+                label="Download English Dubbed Video",
+                data=file,
+                file_name="english_dubbed.mp4"
             )
